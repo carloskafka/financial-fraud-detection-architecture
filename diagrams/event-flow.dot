@@ -1,0 +1,54 @@
+digraph EventFlow {
+  graph [rankdir=TB, bgcolor="white", pad="0.25", nodesep="0.3",
+         ranksep="0.35", fontname="Helvetica", fontsize=18,
+         labelloc="t", label="Event Types, Publishers, Consumers, and Triggers"];
+  node [shape=box, style="rounded,filled", fontname="Helvetica",
+        fontsize=9, color="#34495e", fillcolor="#edf2f7", margin="0.12,0.08"];
+  edge [fontname="Helvetica", fontsize=8, color="#526477", arrowsize=0.7];
+
+  ingress [label="Publisher: Transaction Ingress", fillcolor="#bfdbfe"];
+  enrich [label="Consumer / Publisher: Enrichment", fillcolor="#dcfce7"];
+  score [label="Consumer / Publisher: Fraud Scoring", fillcolor="#dcfce7"];
+  decision [label="Consumer / Publisher: Decision & Alert", fillcolor="#dcfce7"];
+  case [label="Consumer / Publisher: Case Management", fillcolor="#fce7f3"];
+  analyst [label="Analyst / BFF", fillcolor="#e0e7ff"];
+  archive [label="Independent consumers: Archive + Audit", fillcolor="#fef3c7"];
+  replay [label="Operator: Replay Control", fillcolor="#fef3c7"];
+  modelops [label="Publisher: Model / Policy Ops", fillcolor="#f3e8ff"];
+
+  accepted [shape=note, label="TransactionAccepted.v1\nTrigger: durable quorum append", fillcolor="#fff7ed"];
+  enriched [shape=note, label="FeaturesEnriched.v1\nTrigger: bounded lookups complete", fillcolor="#fff7ed"];
+  unavailable [shape=note, label="EnrichmentUnavailable.v1\nTrigger: timeout / dependency error", fillcolor="#fee2e2"];
+  computed [shape=note, label="FraudScoreComputed.v1\nTrigger: validated model response", fillcolor="#fff7ed"];
+  finding [shape=note, label="FraudFinding.v1\nTrigger: policy evaluation", fillcolor="#fff7ed"];
+  alert [shape=note, label="FraudAlertRaised.v1\nTrigger: high-confidence threshold", fillcolor="#fee2e2"];
+  caseevent [shape=note, label="AnalystCaseUpdated.v1\nTrigger: case state commit", fillcolor="#fff7ed"];
+  disposition [shape=note, label="AnalystDispositionRecorded.v1\nTrigger: analyst saves outcome", fillcolor="#fff7ed"];
+  replayevent [shape=note, label="ReplayRequested / Completed.v1\nTrigger: approved operator job", fillcolor="#fff7ed"];
+  version [shape=note, label="ModelVersionActivated.v1\nTrigger: approved canary / rollback", fillcolor="#fff7ed"];
+
+  ingress -> accepted [label="publishes on durable quorum append"];
+  accepted -> enrich [label="consumer trigger"];
+  accepted -> archive [label="archive subscription"];
+  enrich -> enriched [label="publishes after bounded feature lookups"];
+  enrich -> unavailable [label="publishes on timeout / dependency failure"];
+  enriched -> score [label="consumer trigger"];
+  unavailable -> decision [label="apply explicit degraded policy"];
+  score -> computed [label="publishes after validated model response"];
+  computed -> decision [label="consumer trigger"];
+  decision -> finding [label="publishes every evaluated outcome"];
+  decision -> alert [label="publishes only when threshold qualifies"];
+  finding -> archive [label="audit subscription"];
+  alert -> case [label="idempotent case creation"];
+  case -> caseevent [label="publishes after case state commit"];
+  caseevent -> analyst [label="notification hint; case remains durable"];
+  analyst -> disposition [label="analyst action"];
+  disposition -> case [label="consume / persist audit history"];
+  disposition -> archive [label="audit subscription"];
+  replay -> replayevent [label="publishes approved job lifecycle"];
+  replayevent -> archive [label="scope / evidence reference"];
+  replayevent -> ingress [label="isolated replay stream"];
+  modelops -> version [label="publishes approved activation / rollback"];
+  version -> score [label="consumer updates model version"];
+  version -> decision [label="consumer updates policy version"];
+}

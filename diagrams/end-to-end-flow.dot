@@ -1,0 +1,32 @@
+digraph EndToEndFlow {
+  graph [rankdir=TB, bgcolor="white", pad="0.25", nodesep="0.35",
+         ranksep="0.55", fontname="Helvetica", fontsize=18,
+         labelloc="t", label="End-to-End Transaction Analysis and Alert Flow"];
+  node [shape=box, style="rounded,filled", fontname="Helvetica",
+        fontsize=9, color="#34495e", fillcolor="#edf2f7", margin="0.14,0.09"];
+  edge [fontname="Helvetica", fontsize=8, color="#526477", arrowsize=0.7];
+
+  source [label="1. Bank processor\nstable transaction ID + event time", fillcolor="#dbeafe"];
+  api [label="2. Ingress\nschema/auth • minimize data • idempotency", fillcolor="#bfdbfe"];
+  append [label="3. Event log\nreplicated append; acknowledge only after quorum", fillcolor="#fde68a"];
+  archive [label="Evidence consumer\nraw event + schema + checksum → immutable archive", fillcolor="#fef3c7"];
+  enrich [label="4. Enrichment\nbounded feature/reference lookups + freshness metadata", fillcolor="#dcfce7"];
+  score [label="5. Inference\npinned model version → score + lineage", fillcolor="#dcfce7"];
+  policy [label="6. Decision policy\nversioned threshold + idempotent finding", fillcolor="#dcfce7"];
+  finding [label="All outcomes\nFraudFinding", fillcolor="#e0e7ff"];
+  alert [label="Qualifying outcome\nFraudAlertRaised", fillcolor="#fee2e2"];
+  case [label="7. Case management\ntransactional case write + audit history", fillcolor="#fce7f3"];
+  push [label="8. Analyst delivery\nBFF REST + SSE reference; reconnect cursor", fillcolor="#e0e7ff"];
+  analyst [label="Analyst reviews and records disposition\ncase log remains authoritative", fillcolor="#dbeafe"];
+  replay [label="Controlled replay\napproved scope → isolated topic → reconciled result", fillcolor="#fef3c7"];
+
+  source -> api -> append;
+  append -> archive [label="independent consumer"];
+  append -> enrich -> score -> policy -> finding;
+  policy -> alert [label="high confidence"];
+  alert -> case -> push -> analyst;
+  finding -> archive [style=dashed, label="audit / lineage"];
+  analyst -> case [label="disposition"];
+  archive -> replay [label="operator approved"];
+  replay -> enrich [style=dashed, label="isolated; no live side effects"];
+}

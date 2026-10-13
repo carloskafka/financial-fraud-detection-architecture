@@ -1,0 +1,38 @@
+digraph DeploymentResilience {
+  graph [rankdir=LR, bgcolor="white", pad="0.25", nodesep="0.35",
+         ranksep="0.6", fontname="Helvetica", fontsize=18,
+         labelloc="t", label="Deployment Zones, Recovery, and Observability"];
+  node [shape=box, style="rounded,filled", fontname="Helvetica",
+        fontsize=9, color="#34495e", fillcolor="#edf2f7", margin="0.12,0.08"];
+  edge [fontname="Helvetica", fontsize=8, color="#526477", arrowsize=0.7];
+  subgraph cluster_region_a {
+    label="Primary Region — 3 Availability Zones"; style="rounded"; color="#93c5fd";
+    gw [label="WAF / API Gateway", fillcolor="#dbeafe"];
+    k8s [label="Kubernetes services\nIngress • stream • model • case • BFF", fillcolor="#dcfce7"];
+    kafka [label="Kafka-compatible log\nRF=3 • min ISR=2", fillcolor="#fde68a"];
+    db [label="Multi-AZ case store", fillcolor="#fce7f3"];
+    store [label="Online features", fillcolor="#dcfce7"];
+    gw -> k8s;
+    k8s -> kafka;
+    k8s -> db;
+    k8s -> store;
+  }
+  subgraph cluster_region_b {
+    label="Recovery Region — warm standby"; style="rounded"; color="#a7f3d0";
+    dr [label="Replicated log / offsets", fillcolor="#fde68a"];
+    drdb [label="Replicated case backup", fillcolor="#fce7f3"];
+    drk8s [label="Minimum standby capacity\nscale up on failover", fillcolor="#dcfce7"];
+    dr -> drk8s;
+    drdb -> drk8s;
+  }
+  archive [label="Cross-region immutable archive\nretention lock + manifests", fillcolor="#fef3c7"];
+  otel [label="OTel Collectors\nmetrics • logs • traces", fillcolor="#f3e8ff"];
+  ops [label="SLO dashboards + paging\nrunbooks • audit reconciliation", fillcolor="#f3e8ff"];
+  kafka -> archive [label="raw + audit"];
+  kafka -> dr [label="async replication; measured RPO"];
+  db -> drdb [label="backup / replication"];
+  k8s -> otel [style=dashed, label="telemetry"];
+  kafka -> otel [style=dashed];
+  otel -> ops [style=dashed];
+  archive -> dr [style=dashed, label="restore / replay"];
+}

@@ -1,0 +1,52 @@
+digraph SolutionArchitecture {
+  graph [rankdir=LR, bgcolor="white", pad="0.25", nodesep="0.45",
+         ranksep="0.75", fontname="Helvetica", fontsize=18,
+         labelloc="t", label="Real-Time Fraud Detection — Solution Architecture"];
+  node [shape=box, style="rounded,filled", fontname="Helvetica",
+        fontsize=10, color="#34495e", fillcolor="#edf2f7", margin="0.12,0.08"];
+  edge [fontname="Helvetica", fontsize=8, color="#526477", arrowsize=0.7];
+
+  upstream [label="Bank transaction\nprocessors", fillcolor="#dbeafe"];
+  ingress [label="Transaction Ingress\nValidate • tokenize • idempotency", fillcolor="#bfdbfe"];
+  broker [label="Replicated Event Backbone\nPartitioned topics • offsets • retention", fillcolor="#fde68a"];
+  enrich [label="Enrichment / Feature\nService", fillcolor="#dcfce7"];
+  score [label="Fraud Scoring\nVersioned model", fillcolor="#dcfce7"];
+  decision [label="Decision & Alert\nPolicy + deduplication", fillcolor="#dcfce7"];
+  case [label="Case Management\nStrong case state + audit", fillcolor="#fce7f3"];
+  bff [label="Analyst BFF\nAuth • REST • SSE", fillcolor="#e0e7ff"];
+  ui [label="Fraud Analyst\nWeb Console", fillcolor="#e0e7ff"];
+  archive [label="Immutable Evidence Archive\nObject lock • checksums", fillcolor="#fef3c7"];
+  replay [label="Replay / Audit Jobs\nApproved • rate-limited", fillcolor="#fef3c7"];
+  obs [label="OpenTelemetry Collectors\nLogs • metrics • traces", fillcolor="#f3e8ff"];
+  telemetry [label="Central Observability\nDashboards • alerts • SLOs", fillcolor="#f3e8ff"];
+  modelops [label="Model & Policy Operations\nSigned versions • canary • rollback", fillcolor="#f3e8ff"];
+  features [label="Online Feature Store\nVersioned snapshots", fillcolor="#dcfce7"];
+
+  upstream -> ingress [label="transaction"];
+  ingress -> broker [label="durable ack after quorum"];
+  broker -> enrich [label="TransactionAccepted"];
+  enrich -> features [dir=both, label="bounded lookup"];
+  enrich -> broker [label="FeaturesEnriched"];
+  broker -> score [label="FeaturesEnriched"];
+  modelops -> score [label="approved model"];
+  score -> broker [label="FraudScoreComputed"];
+  broker -> decision [label="score"];
+  modelops -> decision [label="policy version"];
+  decision -> broker [label="finding / alert"];
+  broker -> case [label="FraudAlertRaised"];
+  case -> broker [label="case updates"];
+  case -> bff [label="authorized case API"];
+  bff -> ui [label="HTTPS + SSE"];
+  broker -> archive [label="raw + audit streams"];
+  archive -> replay [label="approved evidence read"];
+  replay -> broker [label="isolated replay topic"];
+
+  ingress -> obs [style=dashed, label="telemetry"];
+  enrich -> obs [style=dashed];
+  score -> obs [style=dashed];
+  decision -> obs [style=dashed];
+  case -> obs [style=dashed];
+  bff -> obs [style=dashed];
+  broker -> obs [style=dashed];
+  obs -> telemetry [style=dashed];
+}
